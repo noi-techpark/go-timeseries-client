@@ -1,0 +1,5 @@
+version = 1
+SPDX-PackageName = "go-timeseries-client"
+SPDX-PackageSupplier = "NOI Techpark <digital@noi.bz.it>"
+SPDX-PackageDownloadLocation = "https://github.com/noi-techpark/go-timeseries-client"
+annotations = []
