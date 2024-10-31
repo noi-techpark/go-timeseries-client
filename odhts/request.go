@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: MPL-2.0
 
-package ninja
+package odhts
 
 import "time"
 
@@ -17,7 +17,7 @@ const (
 	TreeEvent Repr = "tree,event"
 )
 
-type NinjaRequest struct {
+type Request struct {
 	Repr     Repr
 	Origin   string
 	Limit    int
@@ -41,8 +41,8 @@ type NinjaRequest struct {
 }
 
 // Defaults according to Ninja Swagger documentation
-func DefaultNinjaRequest() *NinjaRequest {
-	def := new(NinjaRequest)
+func DefaultRequest() *Request {
+	def := new(Request)
 	def.Repr = FlatNode
 	def.Limit = 200
 	def.Offset = 0
@@ -51,15 +51,15 @@ func DefaultNinjaRequest() *NinjaRequest {
 	return def
 }
 
-func (nr *NinjaRequest) AddStationType(stationType string) {
+func (nr *Request) AddStationType(stationType string) {
 	nr.StationTypes = append(nr.StationTypes, stationType)
 }
-func (nr *NinjaRequest) AddDataType(dataType string) {
+func (nr *Request) AddDataType(dataType string) {
 	nr.DataTypes = append(nr.DataTypes, dataType)
 }
-func (nr *NinjaRequest) AddEdgeType(edgeType string) {
+func (nr *Request) AddEdgeType(edgeType string) {
 	nr.EdgeTypes = append(nr.EdgeTypes, edgeType)
 }
-func (nr *NinjaRequest) AddEventOrigin(eventOrigin string) {
+func (nr *Request) AddEventOrigin(eventOrigin string) {
 	nr.EventOrigins = append(nr.EventOrigins, eventOrigin)
 }

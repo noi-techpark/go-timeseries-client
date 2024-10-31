@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: MPL-2.0
 
-package ninja
+package odhts
 
 import (
 	"encoding/json"
@@ -11,9 +11,9 @@ import (
 )
 
 // For testing purposes, set this function and it will be used to retrieve a request instead of http
-var TestReqHook func(*NinjaRequest) (any, error)
+var TestReqHook func(*Request) (any, error)
 
-func runReqHook(req *NinjaRequest, result any) error {
+func runReqHook(req *Request, result any) error {
 	r, err := TestReqHook(req)
 	if err != nil {
 		return err
@@ -27,8 +27,8 @@ func runReqHook(req *NinjaRequest, result any) error {
 	return nil
 }
 
-func LoadJsonFile[T any](f string) (*NinjaResponse[T], error) {
-	r := &NinjaResponse[T]{}
+func LoadJsonFile[T any](f string) (*Response[T], error) {
+	r := &Response[T]{}
 	b, err := os.ReadFile(f)
 	if err != nil {
 		return nil, err

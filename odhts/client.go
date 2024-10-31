@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: MPL-2.0
 
-package ninja
+package odhts
 
 import (
 	"encoding/json"
@@ -12,14 +12,16 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 )
 
 const RequestTimeFormat = "2006-01-02T15:04:05.000-0700"
 
-var BaseUrl = os.Getenv("NINJA_BASE_URL")
-var Referer = os.Getenv("NINJA_REFERER")
+var C struct {
+	BaseUrl   string
+	Referer   string
+	AuthToken string
+}
 
 func ar2Path(ar []string) string {
 	if len(ar) == 0 {
@@ -35,7 +37,7 @@ func ar2Path(ar []string) string {
 	return ret
 }
 
-func makeHistoryPath(req *NinjaRequest) string {
+func makeHistoryPath(req *Request) string {
 	return fmt.Sprintf("/v2/%s/%s/%s/%s/%s",
 		req.Repr,
 		ar2Path(req.StationTypes),
@@ -44,14 +46,14 @@ func makeHistoryPath(req *NinjaRequest) string {
 		req.To.Format(RequestTimeFormat))
 }
 
-func makeLatestPath(req *NinjaRequest) string {
+func makeLatestPath(req *Request) string {
 	return fmt.Sprintf("/v2/%s/%s/%s/latest",
 		req.Repr,
 		ar2Path(req.StationTypes),
 		ar2Path(req.DataTypes))
 }
 
-func makeStationTypePath(req *NinjaRequest) string {
+func makeStationTypePath(req *Request) string {
 	return fmt.Sprintf("/v2/%s/%s",
 		req.Repr,
 		ar2Path(req.StationTypes))
@@ -63,7 +65,7 @@ func makeQueryParam(query *url.Values, name string, value any, defaultValue any)
 	}
 }
 
-func makeQuery(req *NinjaRequest) *url.Values {
+func makeQuery(req *Request) *url.Values {
 	query := &url.Values{}
 	makeQueryParam(query, "origin", req.Origin, "")
 	makeQueryParam(query, "limit", req.Limit, 200)
@@ -76,11 +78,11 @@ func makeQuery(req *NinjaRequest) *url.Values {
 	return query
 }
 
-func getPath[T any](path string, req *NinjaRequest, result *NinjaResponse[T]) error {
+func getPath[T any](path string, req *Request, result *Response[T]) error {
 	if TestReqHook != nil {
 		return runReqHook(req, result)
 	}
-	u, err := url.Parse(BaseUrl)
+	u, err := url.Parse(C.BaseUrl)
 	if err != nil {
 		return fmt.Errorf("unable to parse Base URL from config: %w", err)
 	}
@@ -89,20 +91,20 @@ func getPath[T any](path string, req *NinjaRequest, result *NinjaResponse[T]) er
 	return requestUrl(u, result)
 }
 
-func StationType[T any](req *NinjaRequest, res *NinjaResponse[T]) error {
+func StationType[T any](req *Request, res *Response[T]) error {
 	return getPath(makeStationTypePath(req), req, res)
 }
 
-func History[T any](req *NinjaRequest, res *NinjaResponse[T]) error {
+func History[T any](req *Request, res *Response[T]) error {
 	return getPath(makeHistoryPath(req), req, res)
 }
 
-func Latest[T any](req *NinjaRequest, res *NinjaResponse[T]) error {
+func Latest[T any](req *Request, res *Response[T]) error {
 	return getPath(makeLatestPath(req), req, res)
 }
 
-func Get[T any](query string, result *NinjaResponse[T]) error {
-	url, _ := url.Parse(BaseUrl + query)
+func Get[T any](query string, result *Response[T]) error {
+	url, _ := url.Parse(C.BaseUrl + query)
 	return requestUrl(url, result)
 }
 
@@ -115,8 +117,14 @@ func requestUrl(reqUrl *url.URL, result any) error {
 	}
 
 	req.Header = http.Header{
-		"Referer": {Referer},
-		"Accept":  {"application/json"},
+		"Accept": {"application/json"},
+	}
+
+	if C.AuthToken != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", C.AuthToken))
+	}
+	if C.Referer != "" {
+		req.Header.Set("Referer", C.Referer)
 	}
 
 	res, err := http.DefaultClient.Do(req)
