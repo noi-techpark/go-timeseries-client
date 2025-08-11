@@ -31,6 +31,7 @@ type StationDto[T any] struct {
 	Smeta   T        `json:"smetadata"`
 }
 
+// Coordinates used e.g. by stations
 type CoordDto struct {
 	X    float32
 	Y    float32

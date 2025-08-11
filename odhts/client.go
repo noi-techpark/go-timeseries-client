@@ -17,10 +17,45 @@ import (
 
 const RequestTimeFormat = "2006-01-02T15:04:05.000-0700"
 
-var C struct {
-	BaseUrl   string
-	Referer   string
-	AuthToken string
+type C struct {
+	baseUrl  string
+	referer  string
+	tokenUrl string
+	auth     auth
+}
+
+/*
+Initialize an Open Data Hub time series client.
+
+	referer: identify your application to get better quota and let us know who you are
+*/
+func NewDefaultClient(referer string) C {
+	return NewCustomClient("https://mobility.api.opendatahub.com",
+		"https://auth.opendatahub.testingmachine.eu/auth/realms/noi/protocol/openid-connect/token",
+		referer)
+}
+
+/*
+Initialize an Open Data Hub time series client with a custom endpoint
+
+	baseUrl: Open Data Hub endpoint, e.b.https://mobility.api.opendatahub.com
+	tokenUrl: Oauth endpoint, leave empty if not using credentials
+	referer: identify your application to get better quota and let us know who you are
+*/
+func NewCustomClient(baseUrl string, tokenUrl string, referer string) C {
+	return C{
+		baseUrl:  baseUrl,
+		tokenUrl: tokenUrl,
+		referer:  referer,
+	}
+}
+
+func (c *C) UseAuth(clientId string, clientSecret string) {
+	c.auth = auth{
+		TokenUrl:     c.tokenUrl,
+		ClientId:     clientId,
+		ClientSecret: clientSecret,
+	}
 }
 
 func ar2Path(ar []string) string {
@@ -78,37 +113,37 @@ func makeQuery(req *Request) *url.Values {
 	return query
 }
 
-func getPath[T any](path string, req *Request, result *Response[T]) error {
+func getPath[T any](c C, path string, req *Request, result *Response[T]) error {
 	if TestReqHook != nil {
 		return runReqHook(req, result)
 	}
-	u, err := url.Parse(C.BaseUrl)
+	u, err := url.Parse(c.baseUrl)
 	if err != nil {
 		return fmt.Errorf("unable to parse Base URL from config: %w", err)
 	}
 	u.Path += path
 	u.RawQuery = makeQuery(req).Encode()
-	return requestUrl(u, result)
+	return c.requestUrl(u, result)
 }
 
-func StationType[T any](req *Request, res *Response[T]) error {
-	return getPath(makeStationTypePath(req), req, res)
+func StationType[T any](c C, req *Request, res *Response[T]) error {
+	return getPath(c, makeStationTypePath(req), req, res)
 }
 
-func History[T any](req *Request, res *Response[T]) error {
-	return getPath(makeHistoryPath(req), req, res)
+func History[T any](c C, req *Request, res *Response[T]) error {
+	return getPath(c, makeHistoryPath(req), req, res)
 }
 
-func Latest[T any](req *Request, res *Response[T]) error {
-	return getPath(makeLatestPath(req), req, res)
+func Latest[T any](c C, req *Request, res *Response[T]) error {
+	return getPath(c, makeLatestPath(req), req, res)
 }
 
-func Get[T any](query string, result *Response[T]) error {
-	url, _ := url.Parse(C.BaseUrl + query)
-	return requestUrl(url, result)
+func Get[T any](c C, query string, result *Response[T]) error {
+	url, _ := url.Parse(c.baseUrl + query)
+	return c.requestUrl(url, result)
 }
 
-func requestUrl(reqUrl *url.URL, result any) error {
+func (c *C) requestUrl(reqUrl *url.URL, result any) error {
 	slog.Debug("Ninja request with URL: " + reqUrl.String())
 
 	req, err := http.NewRequest(http.MethodGet, reqUrl.String(), nil)
@@ -120,11 +155,16 @@ func requestUrl(reqUrl *url.URL, result any) error {
 		"Accept": {"application/json"},
 	}
 
-	if C.AuthToken != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", C.AuthToken))
+	if c.auth.ClientId != "" {
+		token, err := c.auth.getToken()
+		if err != nil {
+			return fmt.Errorf("error authorizing request: %w", err)
+		}
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
-	if C.Referer != "" {
-		req.Header.Set("Referer", C.Referer)
+
+	if c.referer != "" {
+		req.Header.Set("Referer", c.referer)
 	}
 
 	res, err := http.DefaultClient.Do(req)

@@ -26,6 +26,7 @@ func TestReqHook1(t *testing.T) {
 	j, err := LoadJsonFile[[]StationDto[BikeShareMeta]]("test/ninja_loadjson.json")
 	assert.NilError(t, err, "Failed to load JSON")
 
+	c := NewDefaultClient("")
 	req := Request{}
 	req.Origin = "test"
 	TestReqHook = func(nr *Request) (any, error) {
@@ -34,7 +35,7 @@ func TestReqHook1(t *testing.T) {
 	}
 
 	res := Response[[]StationDto[BikeShareMeta]]{}
-	err = StationType(&req, &res)
+	err = StationType(c, &req, &res)
 	assert.NilError(t, err, "Error calling ninja with req hook")
 
 	assert.Assert(t, res.Data[0].Scode != "", "zero value in returned data")
