@@ -31,7 +31,7 @@ Initialize an Open Data Hub time series client.
 */
 func NewDefaultClient(referer string) C {
 	return NewCustomClient("https://mobility.api.opendatahub.com",
-		"https://auth.opendatahub.testingmachine.eu/auth/realms/noi/protocol/openid-connect/token",
+		"https://auth.opendatahub.com/auth/realms/noi/protocol/openid-connect/token",
 		referer)
 }
 
