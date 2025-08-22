@@ -37,7 +37,7 @@ func TestAnd(t *testing.T) {
 	expect += `scoordinate.bbi.(11.3,46.4,12,47),scoordinate.bbc.(11.3,46.456757,12,47,4326),scoordinate.dlt.(4000,11.2,46.7,4326)`
 	expect += `)`
 
-	if actual.String() != expect {
+	if actual != expect {
 		t.Log("query did not match. dumping actual and expected..")
 		t.Log(actual)
 		t.Log(expect)
