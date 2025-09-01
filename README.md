@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2024 NOI Techpark <digital@noi.bz.it>
 SPDX-License-Identifier: CC0-1.0
 -->
 
-# Golang client for Open Data Hub time series API (affectionately named "ninja")
+# Golang client for Open Data Hub time series API
 
 This is a golang client library for the Open Data Hub time series API:
 [Ninja API](https://github.com/noi-techpark/it.bz.opendatahub.api.mobility-ninja)
