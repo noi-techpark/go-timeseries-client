@@ -12,6 +12,50 @@ This is a golang client library for the Open Data Hub time series API:
 ## Usage
 `go get github.com/noi-techpark/go-timeseries-client`
 
+
+```go
+	// a short string identifying your application
+	referer := "myapp.com"
+	// create a client
+	c := odhts.NewDefaultClient(referer)
+	// if you want to use a different Timeseries or Authentication endpoints, create a custom client instead
+	customClient := odhts.NewCustomClient(
+		"http://localhost:8080",
+		"http://authserver.example.com/auth/realms/test/protocol/openid-connect/token",
+		referer)
+	// (optional) use oauth credentials for requests
+	customClient.UseAuth("myclientid", "myclientsecret")
+
+	// Prepare a new request
+	// Refer to the OpenAPI spec at https://mobility.api.opendatahub.com for all options
+	req := odhts.DefaultRequest()
+	req.Repr = odhts.FlatNode
+	req.AddStationType("EChargingStation")
+	req.AddDataType("number-available")
+	// add some custom filters
+	req.Where = where.And(
+		where.Eq("sorigin", "Neogy"),
+		where.Eq("sactive", "true"),
+	)
+	req.Limit = 5
+
+	// request stations
+	// We use a provided response Dto, but you can (and sometimes have to) pass your own JSON-mappable types
+	var stations odhts.Response[[]odhts.StationDto[map[string]any]]
+	if err := odhts.StationType(c, req, &stations); err != nil {
+		panic(err)
+	}
+	fmt.Printf("Stations:\n %v\n\n", stations)
+
+	// request latest measurements
+	var latest odhts.Response[[]odhts.LatestDto]
+	if err := odhts.Latest(c, req, &latest); err != nil {
+		panic(err)
+	}
+	fmt.Printf("Measurements:\n %v", latest)
+
+```
+
 ## Information
 
 ### Support
