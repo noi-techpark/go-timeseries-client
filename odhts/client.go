@@ -30,7 +30,7 @@ Initialize an Open Data Hub time series client.
 	referer: identify your application to get better quota and let us know who you are
 */
 func NewDefaultClient(referer string) C {
-	return NewCustomClient("https://mobility.api.opendatahub.com",
+	return NewCustomClient("https://mobility.api.opendatahub.com/v2",
 		"https://auth.opendatahub.com/auth/realms/noi/protocol/openid-connect/token",
 		referer)
 }
@@ -73,7 +73,7 @@ func ar2Path(ar []string) string {
 }
 
 func makeHistoryPath(req *Request) string {
-	return fmt.Sprintf("/v2/%s/%s/%s/%s/%s",
+	return fmt.Sprintf("/%s/%s/%s/%s/%s",
 		req.Repr,
 		ar2Path(req.StationTypes),
 		ar2Path(req.DataTypes),
@@ -82,14 +82,14 @@ func makeHistoryPath(req *Request) string {
 }
 
 func makeLatestPath(req *Request) string {
-	return fmt.Sprintf("/v2/%s/%s/%s/latest",
+	return fmt.Sprintf("/%s/%s/%s/latest",
 		req.Repr,
 		ar2Path(req.StationTypes),
 		ar2Path(req.DataTypes))
 }
 
 func makeStationTypePath(req *Request) string {
-	return fmt.Sprintf("/v2/%s/%s",
+	return fmt.Sprintf("/%s/%s",
 		req.Repr,
 		ar2Path(req.StationTypes))
 }
