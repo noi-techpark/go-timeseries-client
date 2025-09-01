@@ -9,6 +9,8 @@ SPDX-License-Identifier: CC0-1.0
 This is a golang client library for the Open Data Hub time series API:
 [Ninja API](https://github.com/noi-techpark/it.bz.opendatahub.api.mobility-ninja)
 
+An OpenAPI spec and swagger instance to browse the API is [available here](https://mobility.api.opendatahub.com)
+
 ## Usage
 `go get github.com/noi-techpark/go-timeseries-client`
 
