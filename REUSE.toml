@@ -12,3 +12,9 @@ path = ["go.mod", "go.sum"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "(c) NOI Techpark <digital@noi.bz.it>"
 SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = [".github/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "(c) NOI Techpark <digital@noi.bz.it>"
+SPDX-License-Identifier = "CC0-1.0"
