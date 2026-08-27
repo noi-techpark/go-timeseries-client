@@ -5,6 +5,7 @@
 package odhts
 
 import (
+	"context"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -35,7 +36,7 @@ func TestReqHook1(t *testing.T) {
 	}
 
 	res := Response[[]StationDto[BikeShareMeta]]{}
-	err = StationType(c, &req, &res)
+	err = StationType(context.Background(), c, &req, &res)
 	assert.NilError(t, err, "Error calling ninja with req hook")
 
 	assert.Assert(t, res.Data[0].Scode != "", "zero value in returned data")

@@ -53,7 +53,7 @@ An OpenAPI spec and swagger instance to browse the API is [available here](https
 ```go
 	// We use a provided response Dto, but you can (and sometimes have to) pass your own JSON-mappable types
 	var stations odhts.Response[[]odhts.StationDto[map[string]any]]
-	if err := odhts.StationType(c, req, &stations); err != nil {
+	if err := odhts.StationType(ctx, c, req, &stations); err != nil {
 		panic(err)
 	}
 	fmt.Printf("Stations:\n %v\n\n", stations)
@@ -62,7 +62,7 @@ An OpenAPI spec and swagger instance to browse the API is [available here](https
 ### Get latest measurements
 ```go
 	var latest odhts.Response[[]odhts.LatestDto]
-	if err := odhts.Latest(c, req, &latest); err != nil {
+	if err := odhts.Latest(ctx, c, req, &latest); err != nil {
 		panic(err)
 	}
 	fmt.Printf("Measurements:\n %v", latest)
@@ -96,3 +96,26 @@ Then install the pre-commit hook via the config file by running:
 ```bash
 pre-commit install
 ```
+## Upgrading to v0.4
+
+`v0.4` is a breaking release. Three changes, all mechanical:
+
+**Every request takes a context.** `StationType`, `History`, `Latest` and `Get` now take
+`ctx context.Context` first. Requests previously ignored cancellation entirely, so a hung
+API pinned the calling goroutine until the process died.
+
+```go
+odhts.Latest(c, req, &res)        // v0.3
+odhts.Latest(ctx, c, req, &res)   // v0.4
+```
+
+**The client is a pointer.** `NewDefaultClient` and `NewCustomClient` return `*C`, and the
+request functions take `*C`. Passing by value meant the cached token was written to a copy
+and discarded, so *every* request re-authenticated. If you stored a `C`, store a `*C`.
+
+**Timeouts come from the context.** There is no default client timeout; set a deadline on
+the context instead. `UseHTTPClient` is available for transport-level concerns.
+
+Also in this release: a non-OK response from the token endpoint is now returned as an error
+rather than silently leaving the token empty, and a non-OK response from the API is a typed
+`*StatusError` carrying the status code.
