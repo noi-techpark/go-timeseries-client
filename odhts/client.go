@@ -5,14 +5,13 @@
 package odhts
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strconv"
 )
 
 const RequestTimeFormat = "2006-01-02T15:04:05.000-0700"
@@ -21,7 +20,18 @@ type C struct {
 	baseUrl  string
 	referer  string
 	tokenUrl string
-	auth     auth
+	auth     *auth
+	http     *http.Client
+}
+
+// StatusError reports a non-2xx response from the API.
+type StatusError struct {
+	StatusCode int
+	URL        string
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("timeseries request to %s returned status %d", e.URL, e.StatusCode)
 }
 
 /*
@@ -29,7 +39,7 @@ Initialize an Open Data Hub time series client.
 
 	referer: identify your application to get better quota and let us know who you are
 */
-func NewDefaultClient(referer string) C {
+func NewDefaultClient(referer string) *C {
 	return NewCustomClient("https://mobility.api.opendatahub.com/v2",
 		"https://auth.opendatahub.com/auth/realms/noi/protocol/openid-connect/token",
 		referer)
@@ -42,16 +52,28 @@ Initialize an Open Data Hub time series client with a custom endpoint
 	tokenUrl: Oauth endpoint, leave empty if not using credentials
 	referer: identify your application to get better quota and let us know who you are
 */
-func NewCustomClient(baseUrl string, tokenUrl string, referer string) C {
-	return C{
+func NewCustomClient(baseUrl string, tokenUrl string, referer string) *C {
+	return &C{
 		baseUrl:  baseUrl,
 		tokenUrl: tokenUrl,
 		referer:  referer,
+		http:     &http.Client{},
+	}
+}
+
+// UseHTTPClient replaces the client used for both API and token requests.
+//
+// There is deliberately no default timeout: a request's deadline belongs to its
+// context, which every call takes. Set one here only for transport-level
+// concerns a context cannot express, such as a proxy or a custom TLS config.
+func (c *C) UseHTTPClient(h *http.Client) {
+	if h != nil {
+		c.http = h
 	}
 }
 
 func (c *C) UseAuth(clientId string, clientSecret string) {
-	c.auth = auth{
+	c.auth = &auth{
 		TokenUrl:     c.tokenUrl,
 		ClientId:     clientId,
 		ClientSecret: clientSecret,
@@ -113,7 +135,7 @@ func makeQuery(req *Request) *url.Values {
 	return query
 }
 
-func getPath[T any](c C, path string, req *Request, result *Response[T]) error {
+func getPath[T any](ctx context.Context, c *C, path string, req *Request, result *Response[T]) error {
 	if TestReqHook != nil {
 		return runReqHook(req, result)
 	}
@@ -123,30 +145,33 @@ func getPath[T any](c C, path string, req *Request, result *Response[T]) error {
 	}
 	u.Path += path
 	u.RawQuery = makeQuery(req).Encode()
-	return c.requestUrl(u, result)
+	return c.requestUrl(ctx, u, result)
 }
 
-func StationType[T any](c C, req *Request, res *Response[T]) error {
-	return getPath(c, makeStationTypePath(req), req, res)
+func StationType[T any](ctx context.Context, c *C, req *Request, res *Response[T]) error {
+	return getPath(ctx, c, makeStationTypePath(req), req, res)
 }
 
-func History[T any](c C, req *Request, res *Response[T]) error {
-	return getPath(c, makeHistoryPath(req), req, res)
+func History[T any](ctx context.Context, c *C, req *Request, res *Response[T]) error {
+	return getPath(ctx, c, makeHistoryPath(req), req, res)
 }
 
-func Latest[T any](c C, req *Request, res *Response[T]) error {
-	return getPath(c, makeLatestPath(req), req, res)
+func Latest[T any](ctx context.Context, c *C, req *Request, res *Response[T]) error {
+	return getPath(ctx, c, makeLatestPath(req), req, res)
 }
 
-func Get[T any](c C, query string, result *Response[T]) error {
-	url, _ := url.Parse(c.baseUrl + query)
-	return c.requestUrl(url, result)
+func Get[T any](ctx context.Context, c *C, query string, result *Response[T]) error {
+	u, err := url.Parse(c.baseUrl + query)
+	if err != nil {
+		return fmt.Errorf("unable to parse query URL: %w", err)
+	}
+	return c.requestUrl(ctx, u, result)
 }
 
-func (c *C) requestUrl(reqUrl *url.URL, result any) error {
+func (c *C) requestUrl(ctx context.Context, reqUrl *url.URL, result any) error {
 	slog.Debug("Ninja request with URL: " + reqUrl.String())
 
-	req, err := http.NewRequest(http.MethodGet, reqUrl.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl.String(), nil)
 	if err != nil {
 		return fmt.Errorf("unable to create Ninja HTTP Request: %w", err)
 	}
@@ -155,8 +180,8 @@ func (c *C) requestUrl(reqUrl *url.URL, result any) error {
 		"Accept": {"application/json"},
 	}
 
-	if c.auth.ClientId != "" {
-		token, err := c.auth.getToken()
+	if c.auth != nil {
+		token, err := c.auth.getToken(ctx, c.httpClient())
 		if err != nil {
 			return fmt.Errorf("error authorizing request: %w", err)
 		}
@@ -167,14 +192,14 @@ func (c *C) requestUrl(reqUrl *url.URL, result any) error {
 		req.Header.Set("Referer", c.referer)
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := c.httpClient().Do(req)
 	if err != nil {
 		return fmt.Errorf("error performing ninja request: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return errors.New("ninja request returned non-OK status: " + strconv.Itoa(res.StatusCode))
+		return &StatusError{StatusCode: res.StatusCode, URL: reqUrl.String()}
 	}
 
 	bodyBytes, err := io.ReadAll(res.Body)
@@ -188,4 +213,12 @@ func (c *C) requestUrl(reqUrl *url.URL, result any) error {
 	}
 
 	return nil
+}
+
+// httpClient tolerates a zero-value C, which a caller can still construct.
+func (c *C) httpClient() *http.Client {
+	if c.http == nil {
+		return http.DefaultClient
+	}
+	return c.http
 }
